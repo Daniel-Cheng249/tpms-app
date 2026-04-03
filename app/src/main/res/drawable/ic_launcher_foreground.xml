@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 简单的轮胎图标 -->
+    <group android:scaleX="0.5" android:scaleY="0.5"
+        android:translateX="27" android:translateY="27">
+        <!-- 外圆 -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+        <!-- 内圆 -->
+        <path
+            android:fillColor="#2196F3"
+            android:pathData="M54,54m-25,0a25,25 0,1 1,50 0a25,25 0,1 1,-50 0"/>
+        <!-- 中心圆 -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,54m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0"/>
+    </group>
+</vector>

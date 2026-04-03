@@ -1,0 +1,28 @@
+# Gradle 文件
+*.iml
+.gradle
+/local.properties
+/.idea
+/.gradle
+/captures
+.externalNativeBuild
+.cxx
+lkml*
+
+# 本地配置文件
+*.local
+*.env
+!gradle/wrapper/gradle-wrapper.jar
+
+# 工作区目录
+.worktrees/
+worktrees/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 构建输出
+/build
+/app/build
+**/build/**

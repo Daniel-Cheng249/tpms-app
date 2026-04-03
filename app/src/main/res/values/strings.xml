@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">胎压监测</string>
+    <string name="front_left">左前</string>
+    <string name="front_right">右前</string>
+    <string name="rear_left">左后</string>
+    <string name="rear_right">右后</string>
+    <string name="scanning">扫描中</string>
+    <string name="connected">已连接</string>
+    <string name="disconnected">未连接</string>
+    <string name="start_scan">开始扫描</string>
+    <string name="stop_scan">停止扫描</string>
+    <string name="disconnect">断开连接</string>
+    <string name="pressure_unit">bar</string>
+    <string name="temperature_unit">°C</string>
+    <string name="permission_required">请授予蓝牙权限以使用此功能</string>
+</resources>

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p ~/.gradle/wrapper/dists/gradle-8.2-bin/bbg7u40eoinfdyxsxr3z4i7ta)",
+      "Read(//c/Users/daniel/.gradle/wrapper/dists/gradle-8.2-bin/**)",
+      "Bash(curl -L -o gradle-8.2-bin.zip https://services.gradle.org/distributions/gradle-8.2-bin.zip)"
+    ]
+  }
+}
