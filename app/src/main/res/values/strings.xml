@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">胎压监测</string>
+    <string name="app_name">TPMS UAES</string>
     <string name="front_left">左前</string>
     <string name="front_right">右前</string>
     <string name="rear_left">左后</string>

@@ -58,7 +58,7 @@ fun DashboardScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "胎压监测",
+                    text = "TPMS UAES",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary

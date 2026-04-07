@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TPMSMonitor"
+rootProject.name = "TPMS-UAES"
 include(":app")
