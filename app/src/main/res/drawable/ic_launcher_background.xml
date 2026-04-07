@@ -1,5 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#2196F3"/>
-    <size android:width="108dp" android:height="108dp"/>
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 科技风深色渐变背景 -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="#0D1B2A"
+                android:centerColor="#1B263B"
+                android:endColor="#0D1B2A"
+                android:centerX="0.5"
+                android:centerY="0.5"/>
+            <size android:width="108dp" android:height="108dp"/>
+        </shape>
+    </item>
+    <!-- 科技感网格线条 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#00FFFFFF"/>
+            <stroke
+                android:width="0.5dp"
+                android:color="#1AFFFFFF"/>
+            <size android:width="108dp" android:height="108dp"/>
+        </shape>
+    </item>
+</layer-list>
