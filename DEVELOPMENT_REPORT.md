@@ -1,8 +1,8 @@
-# TPMS Monitor Android App 开发工作报告
+# TPMS UAES Android App 开发工作报告
 
-**报告日期**: 2026-03-14
-**项目**: 汽车胎压监测 Android App
-**状态**: 代码实现完成，待测试
+**报告日期**: 2026-04-07
+**项目**: 汽车胎压监测 Android App (TPMS UAES)
+**状态**: 代码实现完成，已上传 GitHub，待硬件测试
 
 ---
 
@@ -134,33 +134,34 @@ Chunk 7: 验证与测试
 
 **使用的技能**: `superpowers:executing-plans` + `superpowers:using-git-worktrees`
 
-**Git Worktree 设置**:
-- **位置**: `.worktrees/tpms-app`
-- **分支**: `feature/tpms-app`
-- **基础分支**: `master`
+**GitHub 仓库**:
+- **地址**: https://github.com/Daniel-Cheng249/tpms-app
+- **作者**: Daniel-Cheng249 <chengze2@foxmail.com>
+- **分支**: `main`
 
-**提交历史** (8 个提交):
+**提交历史**:
 
-| Commit | 说明 | 文件数 |
-|--------|------|--------|
-| `26ced55` | chore: add git ignore file | 1 |
-| `2ca4315` | feat: create project skeleton | 8 |
-| `e0c51cd` | feat: create data models and BLE constants | 5 |
-| `12f26cd` | feat: create BLE scanner and manager | 2 |
-| `2adfe05` | feat: create ViewModel | 1 |
-| `de9325e` | feat: create UI components and MainActivity | 6 |
-| `1ade845` | feat: add Android resource files | 3 |
-| `ec2bb70` | feat: add app icons | 4 |
+| Commit | 说明 |
+|--------|------|
+| `1b6b4b7` | Initial commit: TPMS App with GitHub workflow |
+| `b3c9f56` | 清理不必要的脚本文件，添加简化版 push.bat |
+| `1cac302` | 添加 README |
+| `274ce5d` | 更新 README，配置作者信息 |
+| `725b630` | 清理测试文本 |
+| `82af394` | 恢复 push.bat 脚本 |
+| `98228b9` | 将 App 名称修改为 TPMS UAES |
+| `668b3f3` | 更新应用图标为科技风格设计 |
+| `82af394` | 恢复 push.bat 脚本 |
 
-**总代码量**: 约 1,500+ 行 Kotlin 代码
+**总代码量**: 约 2,000+ 行 Kotlin 代码
 
 ---
 
 ## 三、产出物清单
 
-### 代码文件 (30+ 个)
+### 代码文件 (35+ 个)
 
-**项目配置** (8 个):
+**项目配置** (9 个):
 - `.gitignore`
 - `build.gradle.kts`
 - `settings.gradle.kts`
@@ -169,27 +170,32 @@ Chunk 7: 验证与测试
 - `gradle/libs.versions.toml`
 - `app/build.gradle.kts`
 - `app/proguard-rules.pro`
+- `push.bat` (快速推送脚本)
 
-**数据模型** (3 个):
+**数据模型** (5 个):
 - `app/src/main/java/com/tpms/monitor/data/TirePosition.kt`
 - `app/src/main/java/com/tpms/monitor/data/TirePressureData.kt`
 - `app/src/main/java/com/tpms/monitor/data/UiState.kt`
+- `app/src/main/java/com/tpms/monitor/data/TireDeviceMapping.kt`
+- `app/src/main/java/com/tpms/monitor/data/MappingPreferences.kt` (DataStore 持久化)
 
-**BLE 通信** (4 个):
+**BLE 通信** (5 个):
 - `app/src/main/java/com/tpms/monitor/ble/BleConstants.kt`
 - `app/src/main/java/com/tpms/monitor/ble/BleDevice.kt`
 - `app/src/main/java/com/tpms/monitor/ble/BleScanner.kt`
 - `app/src/main/java/com/tpms/monitor/ble/BleManager.kt`
+- `app/src/main/java/com/tpms/monitor/ble/BleConnectionState.kt`
 
 **ViewModel** (1 个):
 - `app/src/main/java/com/tpms/monitor/ui/viewmodel/TirePressureViewModel.kt`
 
-**UI 组件** (6 个):
+**UI 组件** (7 个):
 - `app/src/main/java/com/tpms/monitor/ui/theme/Color.kt`
 - `app/src/main/java/com/tpms/monitor/ui/theme/Theme.kt`
 - `app/src/main/java/com/tpms/monitor/ui/components/StatusIndicators.kt`
 - `app/src/main/java/com/tpms/monitor/ui/components/TirePressureCard.kt`
 - `app/src/main/java/com/tpms/monitor/ui/components/DashboardScreen.kt`
+- `app/src/main/java/com/tpms/monitor/ui/components/DeviceMappingScreen.kt` (设备绑定界面)
 - `app/src/main/java/com/tpms/monitor/MainActivity.kt`
 
 **资源文件** (7 个):
@@ -201,21 +207,22 @@ Chunk 7: 验证与测试
 - `app/src/main/res/drawable/ic_launcher_foreground.xml`
 - `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`
 
-### 文档文件 (4 个)
+### 文档文件 (5 个)
 
 | 文件 | 位置 | 内容 |
 |------|------|------|
+| 开发报告 | `DEVELOPMENT_REPORT.md` | 本报告，完整开发记录 |
+| 开发日志 | `CLAUDE.md` | 项目概述和环境配置 |
+| 待办事项 | `TODO.md` | 功能开发清单 |
+| README | `README.md` | 项目简介和快速开始 |
 | 设计文档 | `docs/superpowers/specs/2026-03-14-tpms-monitor-design.md` | 完整的设计规格说明 |
-| 实施计划 | `C:\Users\wu\.claude\plans\tpms-monitor-implementation.md` | 详细的任务分解 |
-| 界面 Mockup | `tpms-mockup.html` | 视觉效果展示 |
-| 架构图 | `tpms-architecture.html` | 系统架构和数据流 |
 
 ---
 
 ## 四、项目目录结构
 
 ```
-.worktrees/tpms-app/
+tpms-app/
 ├── .gitignore
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -234,18 +241,22 @@ Chunk 7: 验证与测试
         │   ├── data/
         │   │   ├── TirePosition.kt
         │   │   ├── TirePressureData.kt
-        │   │   └── UiState.kt
+        │   │   ├── UiState.kt
+        │   │   ├── TireDeviceMapping.kt
+        │   │   └── MappingPreferences.kt
         │   ├── ble/
         │   │   ├── BleConstants.kt
         │   │   ├── BleDevice.kt
         │   │   ├── BleScanner.kt
-        │   │   └── BleManager.kt
+        │   │   ├── BleManager.kt
+        │   │   └── BleConnectionState.kt
         │   ├── ui/
         │   │   ├── theme/
         │   │   │   ├── Color.kt
         │   │   │   └── Theme.kt
         │   │   ├── components/
         │   │   │   ├── DashboardScreen.kt
+        │   │   │   ├── DeviceMappingScreen.kt
         │   │   │   ├── StatusIndicators.kt
         │   │   │   └── TirePressureCard.kt
         │   │   └── viewmodel/
@@ -261,6 +272,11 @@ Chunk 7: 验证与测试
             └── mipmap-anydpi-v26/
                 ├── ic_launcher.xml
                 └── ic_launcher_round.xml
+├── README.md
+├── CLAUDE.md
+├── TODO.md
+├── DEVELOPMENT_REPORT.md
+└── push.bat
 ```
 
 ---
@@ -389,8 +405,11 @@ tree -L 4
 # 查看提交历史
 git log --oneline
 
-# 切换到 worktree 目录
-cd .worktrees/tpms-app
+# 快速推送代码
+./push.bat "提交信息"
+
+# 或手动推送
+git add . && git commit -m "提交信息" && git push
 ```
 
 ---
@@ -398,9 +417,10 @@ cd .worktrees/tpms-app
 ## 九、Git 提交历史
 
 ```
-ec2bb70 feat: add app icons
-1ade845 feat: add Android resource files
-de9325e feat: create UI components and MainActivity
+668b3f3 更新应用图标为科技风格设计
+98228b9 将 App 名称修改为 TPMS UAES
+82af394 恢复 push.bat 脚本
+1b6b4b7 Initial commit: TPMS App with GitHub workflow
 2adfe05 feat: create ViewModel for UI state management
 12f26cd feat: create BLE scanner and manager
 e0c51cd feat: create data models and BLE constants

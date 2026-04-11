@@ -137,7 +137,7 @@ fun DeviceMappingScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(scannedDevices) { device ->
+                    items(scannedDevices.sortedByDescending { it.rssi }) { device ->
                         val isBound = tireMapping.getTirePosition(device.address) != null
                         ScannedDeviceItem(
                             device = device,
@@ -551,7 +551,7 @@ private fun DeviceSelectionDialog(
                         modifier = Modifier.height(200.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(devices) { device ->
+                        items(devices.sortedByDescending { it.rssi }) { device ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()

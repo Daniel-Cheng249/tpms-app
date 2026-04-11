@@ -30,7 +30,7 @@ class BleScanner(private val context: Context) {
         bluetoothManager.adapter
     }
 
-    private val scanChannel = Channel<BleDevice>(Channel.BUFFERED)
+    private var scanChannel: Channel<BleDevice>? = null
 
     // 当前轮胎设备映射关系
     private var tireMapping: TireDeviceMapping = TireDeviceMapping()
@@ -66,7 +66,7 @@ class BleScanner(private val context: Context) {
                     parsedData = parsedData
                 )
 
-                scanChannel.trySend(bleDevice)
+                scanChannel?.trySend(bleDevice)
 
                 if (parsedData != null) {
                     Log.d(TAG, "Scanned device: ${bleDevice.name} ($address), RSSI: $rssi, " +
@@ -108,6 +108,11 @@ class BleScanner(private val context: Context) {
      */
     @SuppressLint("MissingPermission")
     fun startScan(filterByManufacturer: Boolean = false): Flow<BleDevice> {
+        // 如果之前的 channel 已关闭，创建新的 channel
+        if (scanChannel?.isClosedForSend != false) {
+            scanChannel = Channel(Channel.BUFFERED)
+        }
+
         val scanner = bluetoothAdapter?.bluetoothLeScanner
             ?: throw IllegalStateException("Bluetooth adapter not available")
 
@@ -128,7 +133,7 @@ class BleScanner(private val context: Context) {
         scanner.startScan(filters, settings, scanCallback)
         Log.i(TAG, "BLE scan started (filterByManufacturer=$filterByManufacturer)")
 
-        return scanChannel.receiveAsFlow()
+        return scanChannel!!.receiveAsFlow()
     }
 
     /**
@@ -164,7 +169,7 @@ class BleScanner(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun stopScan() {
         bluetoothAdapter?.bluetoothLeScanner?.stopScan(scanCallback)
-        scanChannel.close()
+        scanChannel?.close()
         Log.i(TAG, "BLE scan stopped")
     }
 

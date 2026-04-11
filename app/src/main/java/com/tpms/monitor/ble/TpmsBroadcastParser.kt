@@ -26,18 +26,17 @@ object TpmsBroadcastParser {
     // 博世 (Bosch) 公司 ID
     private const val BOSCH_MANUFACTURER_ID = 0x02A6
 
-    // 数据字节偏移量 (基于实际广播数据分析)
+    // 数据字节偏移量 (基于 ScanRecord 解析后的制造商数据，已去掉 ID 字节)
     // 广播数据: 02010613FFA6021A001B00FFFFFFFF01000000080100A503...
-    // Manufacturer Data (从 A6 02 开始):
-    // - Byte 0-1: A6 02 - 博世公司 ID (0x02A6)
-    // - Byte 2-3: 1A 00 - 压力值 (0x001A = 26, 对应大气压 ~100kPa = 1bar)
-    // - Byte 4-5: 1B 00 - 温度值 (0x001B = 27, 对应环境温度)
-    // - Byte 6-9: FF FF FF FF - 保留/状态
-    // - Byte 10-13: 01 00 00 00 - 保留
-    // - Byte 14-15: 08 01 - 电池电压 (0x0108 = 264, 单位 0.01V = 2.64V)
-    private const val OFFSET_PRESSURE = 2      // 压力值起始字节
-    private const val OFFSET_TEMPERATURE = 4   // 温度值起始字节
-    private const val OFFSET_BATTERY = 14      // 电池电压起始字节 (08 01)
+    // Manufacturer Data (去掉 A6 02 ID 后):
+    // - Byte 0-1: 1A 00 - 压力值 (0x001A = 26, 对应大气压 ~100kPa = 1bar)
+    // - Byte 2-3: 1B 00 - 温度值 (0x001B = 27, 对应环境温度)
+    // - Byte 4-7: FF FF FF FF - 保留/状态
+    // - Byte 8-11: 01 00 00 00 - 保留
+    // - Byte 12-13: 08 01 - 电池电压 (0x0108 = 264, 单位 0.01V = 2.64V)
+    private const val OFFSET_PRESSURE = 0      // 压力值起始字节
+    private const val OFFSET_TEMPERATURE = 2   // 温度值起始字节
+    private const val OFFSET_BATTERY = 12      // 电池电压起始字节 (08 01)
 
     // 单位换算系数
     private const val PRESSURE_SCALE = 0.0385f  // 26 * 0.0385 ≈ 1 bar (大气压)
@@ -96,13 +95,12 @@ object TpmsBroadcastParser {
     /**
      * 解析博世 TPMS 数据
      *
-     * 数据格式 (基于实际抓包):
-     * Byte 0-1: 博世公司 ID (0xA6, 0x02) - 已经从 ScanRecord 中分离
-     * Byte 2-3: 压力值 (little endian, 16-bit)
-     * Byte 4-5: 温度值 (little endian, 16-bit)
-     * Byte 6+:  其他数据 (电量、状态等)
+     * 数据格式 (ScanRecord 返回的数据，已去掉制造商ID):
+     * Byte 0-1: 压力值 (little endian, 16-bit)
+     * Byte 2-3: 温度值 (little endian, 16-bit)
+     * Byte 4+:  其他数据 (电量、状态等)
      *
-     * @param data 制造商特定数据 (不包含前两个字节的 ID)
+     * @param data 制造商特定数据 (已从 ScanRecord 中分离，不包含ID)
      * @param rssi 信号强度
      * @param position 轮胎位置
      * @return 解析后的数据
