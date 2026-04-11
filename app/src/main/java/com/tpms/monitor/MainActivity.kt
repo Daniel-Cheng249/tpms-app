@@ -41,6 +41,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 启用 Compose 性能优化
+        window.setDecorFitsSystemWindows(false)
+
         viewModel = ViewModelProvider(this)[TirePressureViewModel::class.java]
 
         // 请求权限

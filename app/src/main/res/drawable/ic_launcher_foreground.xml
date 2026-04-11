@@ -20,11 +20,9 @@
         android:pathData="M54,34 A20,20 0 1,1 53.99,34"/>
 
     <!-- 中心传感器圆点 -->
-    <circle
-        android:cx="54"
-        android:cy="54"
-        android:r="8"
-        android:fillColor="#00D4FF"/>
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M54,46 A8,8 0 1,1 53.99,46"/>
 
     <!-- 科技装饰线 - 左上 -->
     <path
@@ -54,27 +52,25 @@
         android:strokeWidth="1.5"
         android:pathData="M78,78 L70,70"/>
 
-    <!-- 四个角装饰点 -->
-    <circle
-        android:cx="26"
-        android:cy="26"
-        android:r="2.5"
-        android:fillColor="#00D4FF"/>
-    <circle
-        android:cx="82"
-        android:cy="26"
-        android:r="2.5"
-        android:fillColor="#00D4FF"/>
-    <circle
-        android:cx="26"
-        android:cy="82"
-        android:r="2.5"
-        android:fillColor="#00D4FF"/>
-    <circle
-        android:cx="82"
-        android:cy="82"
-        android:r="2.5"
-        android:fillColor="#00D4FF"/>
+    <!-- 四个角装饰点 - 左上 -->
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M26,23.5 A2.5,2.5 0 1,1 25.99,23.5"/>
+
+    <!-- 四个角装饰点 - 右上 -->
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M82,23.5 A2.5,2.5 0 1,1 81.99,23.5"/>
+
+    <!-- 四个角装饰点 - 左下 -->
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M26,79.5 A2.5,2.5 0 1,1 25.99,79.5"/>
+
+    <!-- 四个角装饰点 - 右下 -->
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M82,79.5 A2.5,2.5 0 1,1 81.99,79.5"/>
 
     <!-- 信号波纹效果 - 右上 -->
     <path
