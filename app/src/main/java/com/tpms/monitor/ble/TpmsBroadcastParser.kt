@@ -8,15 +8,35 @@ import com.tpms.monitor.data.TirePosition
 /**
  * TPMS 广播数据解析器
  * 解析 BLE 广播帧中的 Manufacturer Specific Data (type 0xFF)
+ *
+ * 博世 SMP290 广播数据格式：
+ * 示例数据: 02010613FFA6021A001B00FFFFFFFF01000000080100A503195905110767337203570218AF3EB8001A9032A602
+ *
+ * 结构解析:
+ * - 02 01 06: Flags (Type 0x01, Length 2, Value 0x06)
+ * - 13 FF A6 02 1A 00 1B 00 ...: Manufacturer Specific Data (Type 0xFF, Length 0x13=19)
+ *   - A6 02: 博世公司 ID (0x02A6, little endian)
+ *   - 1A 00: 压力值 (0x001A = 26, 需要确认单位)
+ *   - 1B 00: 温度值 (0x001B = 27, 需要确认单位)
  */
 object TpmsBroadcastParser {
 
     private const val TAG = "TpmsBroadcastParser"
 
-    // 假设的制造商 ID (需要根据实际传感器修改)
-    // 例如：0x004C 是 Apple, 0x0006 是 Microsoft
-    // SMP290 的实际制造商 ID 需要通过抓包获取
-    private val MANUFACTURER_IDS = listOf(0xFF, 0x00FF) // 占位符，需要替换为实际值
+    // 博世 (Bosch) 公司 ID
+    private const val BOSCH_MANUFACTURER_ID = 0x02A6
+
+    // 数据字节偏移量 (基于实际广播数据分析)
+    // 广播数据: 02010613FFA6021A001B00FFFFFFFF01000000080100A503...
+    // Manufacturer Data (从 A6 02 开始):
+    // - Byte 0-1: A6 02 - 博世公司 ID (0x02A6)
+    // - Byte 2-3: 1A 00 - 压力值 (0x001A)
+    // - Byte 4-5: 1B 00 - 温度值 (0x001B)
+    // - Byte 6-9: FF FF FF FF - 保留/状态
+    // - Byte 10-11: 01 08 - 电池电压 (0x0801 = 2049, 单位可能是 mV)
+    private const val OFFSET_PRESSURE = 2      // 压力值起始字节
+    private const val OFFSET_TEMPERATURE = 4   // 温度值起始字节
+    private const val OFFSET_BATTERY = 10      // 电池电压起始字节
 
     /**
      * 从 ScanRecord 解析 TPMS 数据
@@ -43,15 +63,22 @@ object TpmsBroadcastParser {
             return null
         }
 
-        // 遍历所有制造商数据
+        // 查找博世制造商数据
+        val boschData = manufacturerData[BOSCH_MANUFACTURER_ID]
+        if (boschData != null) {
+            Log.d(TAG, "Found Bosch data (ID=0x${BOSCH_MANUFACTURER_ID.toString(16)}): ${boschData.toHexString()}")
+            return parseBoschData(boschData, rssi, position)
+        }
+
+        // 如果没找到博世数据，遍历所有制造商数据尝试解析
         for (i in 0 until manufacturerData.size()) {
             val manufacturerId = manufacturerData.keyAt(i)
             val data = manufacturerData.valueAt(i)
 
             Log.d(TAG, "Manufacturer ID: 0x${manufacturerId.toString(16)}, Data: ${data?.toHexString()}")
 
-            // 尝试解析数据
-            val parsedData = parseManufacturerData(data, manufacturerId, deviceAddress, rssi, position)
+            // 尝试作为博世格式解析
+            val parsedData = parseBoschData(data, rssi, position)
             if (parsedData != null) {
                 return parsedData
             }
@@ -61,69 +88,63 @@ object TpmsBroadcastParser {
     }
 
     /**
-     * 解析制造商特定数据
+     * 解析博世 TPMS 数据
      *
-     * 数据格式示例（需要根据实际 SMP290 数据格式修改）：
-     * Byte 0-1: 制造商 ID (little endian)
-     * Byte 2:   协议版本/数据类型
-     * Byte 3-4: 压力值 (单位: 0.01 bar, unsigned short, little endian)
-     * Byte 5:   温度值 (单位: °C, signed byte, 偏移 -40)
-     * Byte 6:   电量百分比 (0-100)
-     * Byte 7:   状态标志位
+     * 数据格式 (基于实际抓包):
+     * Byte 0-1: 博世公司 ID (0xA6, 0x02) - 已经从 ScanRecord 中分离
+     * Byte 2-3: 压力值 (little endian, 16-bit)
+     * Byte 4-5: 温度值 (little endian, 16-bit)
+     * Byte 6+:  其他数据 (电量、状态等)
      *
-     * @param data 原始数据字节数组
-     * @param manufacturerId 制造商 ID
-     * @param deviceAddress 设备地址
+     * @param data 制造商特定数据 (不包含前两个字节的 ID)
      * @param rssi 信号强度
      * @param position 轮胎位置
      * @return 解析后的数据
      */
-    private fun parseManufacturerData(
+    private fun parseBoschData(
         data: ByteArray?,
-        manufacturerId: Int,
-        deviceAddress: String,
         rssi: Int,
         position: TirePosition
     ): TirePressureData? {
-        if (data == null || data.size < 8) {
-            Log.w(TAG, "Data too short: ${data?.size ?: 0} bytes")
+        if (data == null || data.size < 6) {
+            Log.w(TAG, "Bosch data too short: ${data?.size ?: 0} bytes")
             return null
         }
 
         return try {
-            // TODO: 这里的数据解析逻辑需要根据 SMP290 的实际广播数据格式调整
-            // 以下是一个示例解析逻辑
+            // 解析压力值 (16-bit unsigned, little endian)
+            // 示例: 1A 00 -> 0x001A = 26
+            val pressureRaw = (data[OFFSET_PRESSURE].toInt() and 0xFF) or
+                    ((data[OFFSET_PRESSURE + 1].toInt() and 0xFF) shl 8)
 
-            // 检查数据格式标识（如果有的话）
-            // val protocolVersion = data[0].toInt() and 0xFF
+            // 解析温度值 (16-bit unsigned, little endian)
+            // 示例: 1B 00 -> 0x001B = 27
+            val temperatureRaw = (data[OFFSET_TEMPERATURE].toInt() and 0xFF) or
+                    ((data[OFFSET_TEMPERATURE + 1].toInt() and 0xFF) shl 8)
 
-            // 解析压力值 (假设是 16-bit unsigned, little endian, 单位 0.01 bar)
-            val pressureRaw = if (data.size >= 3) {
-                (data[1].toInt() and 0xFF) or ((data[2].toInt() and 0xFF) shl 8)
+            // TODO: 需要根据实际单位进行转换
+            // 当前假设：
+            // - 压力：原始值 * 0.01 = bar (例如 26 * 0.01 = 0.26 bar，这个值偏低，可能需要调整)
+            // - 温度：原始值 - 40 = °C (例如 27 - 40 = -13°C，这个值偏低，可能需要调整)
+            val pressure = pressureRaw * 0.01f
+            val temperature = temperatureRaw - 40f
+
+            // 解析电池电压 (16-bit unsigned, little endian)
+            // 示例: 01 08 -> 0x0801 = 2049 (单位可能是 mV)
+            val batteryVoltage = if (data.size >= OFFSET_BATTERY + 2) {
+                (data[OFFSET_BATTERY].toInt() and 0xFF) or
+                        ((data[OFFSET_BATTERY + 1].toInt() and 0xFF) shl 8)
             } else {
                 0
             }
-            val pressure = pressureRaw / 100f  // 转换为 bar
 
-            // 解析温度 (假设是 8-bit signed, 偏移 -40°C)
-            val temperatureRaw = if (data.size >= 4) {
-                data[3].toInt()
-            } else {
-                0
-            }
-            val temperature = temperatureRaw - 40f  // 应用偏移
+            // 将电池电压转换为电量百分比 (假设 2.0V=0%, 3.0V=100%)
+            val batteryLevel = voltageToPercentage(batteryVoltage)
 
-            // 解析电量 (假设是 8-bit, 0-100%)
-            val batteryLevel = if (data.size >= 5) {
-                (data[4].toInt() and 0xFF).coerceIn(0, 100)
-            } else {
-                0
-            }
-
-            // 解析状态标志（可选）
-            // val statusFlags = if (data.size >= 6) data[5].toInt() and 0xFF else 0
-
-            Log.i(TAG, "Parsed TPMS data - Pressure: $pressure bar, Temp: $temperature°C, Battery: $batteryLevel%")
+            Log.i(TAG, "Parsed Bosch TPMS - Raw Pressure: 0x${pressureRaw.toString(16)} ($pressureRaw), " +
+                    "Raw Temp: 0x${temperatureRaw.toString(16)} ($temperatureRaw), " +
+                    "Raw Battery: 0x${batteryVoltage.toString(16)} ($batteryVoltage mV) -> " +
+                    "Pressure: ${"%.2f".format(pressure)} bar, Temp: ${"%.1f".format(temperature)}°C, Battery: $batteryLevel%")
 
             TirePressureData(
                 position = position,
@@ -131,17 +152,36 @@ object TpmsBroadcastParser {
                 temperature = temperature,
                 batteryLevel = batteryLevel,
                 rssi = rssi,
-                isValid = pressure in 0.0..10.0  // 简单的有效性检查
+                isValid = pressure in 0.1f..10.0f  // 简单的有效性检查
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse manufacturer data", e)
+            Log.e(TAG, "Failed to parse Bosch data", e)
             null
         }
     }
 
     /**
+     * 将电池电压 (mV) 转换为电量百分比
+     * 假设 CR2032 纽扣电池：2000mV=0%, 3000mV=100%
+     *
+     * @param voltageMv 电池电压 (单位: mV)
+     * @return 电量百分比 (0-100)
+     */
+    private fun voltageToPercentage(voltageMv: Int): Int {
+        // 电压范围: 2000mV - 3000mV
+        val minVoltage = 2000
+        val maxVoltage = 3000
+
+        return when {
+            voltageMv <= minVoltage -> 0
+            voltageMv >= maxVoltage -> 100
+            else -> ((voltageMv - minVoltage) * 100 / (maxVoltage - minVoltage)).coerceIn(0, 100)
+        }
+    }
+
+    /**
      * 备用解析方法 - 从原始广播数据解析
-     * 如果 ScanRecord 解析失败，可以尝试直接解析原始字节
+     * 用于直接解析原始字节，不依赖 ScanRecord
      */
     fun parseFromRawBytes(
         rawData: ByteArray?,
@@ -153,26 +193,30 @@ object TpmsBroadcastParser {
             return null
         }
 
-        // TODO: 实现原始字节解析逻辑
-        // 需要查找 AD Type 0xFF (Manufacturer Specific Data)
-        // 格式: [Length][Type 0xFF][Manufacturer ID Low][Manufacturer ID High][Data...]
-
+        // 在原始广播数据中查找 Manufacturer Specific Data (Type 0xFF)
         var index = 0
         while (index < rawData.size) {
+            if (index >= rawData.size) break
+
             val length = rawData[index].toInt() and 0xFF
             if (length == 0 || index + length >= rawData.size) break
 
             val type = rawData[index + 1].toInt() and 0xFF
             if (type == 0xFF) {  // Manufacturer Specific Data
-                // 提取制造商数据
-                val manufacturerData = rawData.copyOfRange(index + 2, index + 1 + length)
-                return parseManufacturerData(
-                    manufacturerData,
-                    0,
-                    deviceAddress,
-                    rssi,
-                    position
-                )
+                // 提取制造商数据 (包含制造商 ID)
+                val manufacturerDataWithId = rawData.copyOfRange(index + 2, index + 2 + length - 1)
+
+                // 检查是否是博世 ID
+                if (manufacturerDataWithId.size >= 2) {
+                    val id = (manufacturerDataWithId[0].toInt() and 0xFF) or
+                            ((manufacturerDataWithId[1].toInt() and 0xFF) shl 8)
+
+                    if (id == BOSCH_MANUFACTURER_ID && manufacturerDataWithId.size >= 8) {
+                        // 去掉 ID 部分，解析数据
+                        val dataOnly = manufacturerDataWithId.copyOfRange(2, manufacturerDataWithId.size)
+                        return parseBoschData(dataOnly, rssi, position)
+                    }
+                }
             }
 
             index += length + 1
