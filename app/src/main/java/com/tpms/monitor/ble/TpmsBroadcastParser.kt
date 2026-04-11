@@ -30,13 +30,19 @@ object TpmsBroadcastParser {
     // 广播数据: 02010613FFA6021A001B00FFFFFFFF01000000080100A503...
     // Manufacturer Data (从 A6 02 开始):
     // - Byte 0-1: A6 02 - 博世公司 ID (0x02A6)
-    // - Byte 2-3: 1A 00 - 压力值 (0x001A)
-    // - Byte 4-5: 1B 00 - 温度值 (0x001B)
+    // - Byte 2-3: 1A 00 - 压力值 (0x001A = 26, 对应大气压 ~100kPa = 1bar)
+    // - Byte 4-5: 1B 00 - 温度值 (0x001B = 27, 对应环境温度)
     // - Byte 6-9: FF FF FF FF - 保留/状态
-    // - Byte 10-11: 01 08 - 电池电压 (0x0801 = 2049, 单位可能是 mV)
+    // - Byte 10-13: 01 00 00 00 - 保留
+    // - Byte 14-15: 08 01 - 电池电压 (0x0108 = 264, 单位 0.01V = 2.64V)
     private const val OFFSET_PRESSURE = 2      // 压力值起始字节
     private const val OFFSET_TEMPERATURE = 4   // 温度值起始字节
-    private const val OFFSET_BATTERY = 10      // 电池电压起始字节
+    private const val OFFSET_BATTERY = 14      // 电池电压起始字节 (08 01)
+
+    // 单位换算系数
+    private const val PRESSURE_SCALE = 0.0385f  // 26 * 0.0385 ≈ 1 bar (大气压)
+    private const val TEMPERATURE_OFFSET = 0f   // 直接值即为温度 (需要根据实际校准)
+    private const val BATTERY_SCALE = 0.01f     // 单位 0.01V
 
     /**
      * 从 ScanRecord 解析 TPMS 数据
@@ -122,29 +128,30 @@ object TpmsBroadcastParser {
             val temperatureRaw = (data[OFFSET_TEMPERATURE].toInt() and 0xFF) or
                     ((data[OFFSET_TEMPERATURE + 1].toInt() and 0xFF) shl 8)
 
-            // TODO: 需要根据实际单位进行转换
-            // 当前假设：
-            // - 压力：原始值 * 0.01 = bar (例如 26 * 0.01 = 0.26 bar，这个值偏低，可能需要调整)
-            // - 温度：原始值 - 40 = °C (例如 27 - 40 = -13°C，这个值偏低，可能需要调整)
-            val pressure = pressureRaw * 0.01f
-            val temperature = temperatureRaw - 40f
+            // 压力和温度换算 (基于实际测量数据校准)
+            // - 压力：26 对应大气压 ~1 bar，所以比例系数约为 1/26 ≈ 0.0385
+            // - 温度：直接值即为摄氏度 (需要根据实际校准)
+            val pressure = pressureRaw * PRESSURE_SCALE
+            val temperature = temperatureRaw + TEMPERATURE_OFFSET
 
             // 解析电池电压 (16-bit unsigned, little endian)
-            // 示例: 01 08 -> 0x0801 = 2049 (单位可能是 mV)
-            val batteryVoltage = if (data.size >= OFFSET_BATTERY + 2) {
+            // 示例: 08 01 -> 0x0108 = 264 (单位 0.01V = 2.64V)
+            val batteryVoltageRaw = if (data.size >= OFFSET_BATTERY + 2) {
                 (data[OFFSET_BATTERY].toInt() and 0xFF) or
                         ((data[OFFSET_BATTERY + 1].toInt() and 0xFF) shl 8)
             } else {
                 0
             }
+            val batteryVoltage = batteryVoltageRaw * BATTERY_SCALE  // 转换为伏特
 
             // 将电池电压转换为电量百分比 (假设 2.0V=0%, 3.0V=100%)
-            val batteryLevel = voltageToPercentage(batteryVoltage)
+            val batteryLevel = voltageToPercentage(batteryVoltageRaw)
 
             Log.i(TAG, "Parsed Bosch TPMS - Raw Pressure: 0x${pressureRaw.toString(16)} ($pressureRaw), " +
                     "Raw Temp: 0x${temperatureRaw.toString(16)} ($temperatureRaw), " +
-                    "Raw Battery: 0x${batteryVoltage.toString(16)} ($batteryVoltage mV) -> " +
-                    "Pressure: ${"%.2f".format(pressure)} bar, Temp: ${"%.1f".format(temperature)}°C, Battery: $batteryLevel%")
+                    "Raw Battery: 0x${batteryVoltageRaw.toString(16)} ($batteryVoltageRaw) -> " +
+                    "Pressure: ${"%.2f".format(pressure)} bar, Temp: ${"%.1f".format(temperature)}°C, " +
+                    "Voltage: ${"%.2f".format(batteryVoltage)}V, Battery: $batteryLevel%")
 
             TirePressureData(
                 position = position,
@@ -161,21 +168,21 @@ object TpmsBroadcastParser {
     }
 
     /**
-     * 将电池电压 (mV) 转换为电量百分比
-     * 假设 CR2032 纽扣电池：2000mV=0%, 3000mV=100%
+     * 将电池电压原始值转换为电量百分比
+     * 假设电压原始值范围: 200 (2.0V) = 0%, 300 (3.0V) = 100%
      *
-     * @param voltageMv 电池电压 (单位: mV)
+     * @param voltageRaw 电池电压原始值 (单位: 0.01V)
      * @return 电量百分比 (0-100)
      */
-    private fun voltageToPercentage(voltageMv: Int): Int {
-        // 电压范围: 2000mV - 3000mV
-        val minVoltage = 2000
-        val maxVoltage = 3000
+    private fun voltageToPercentage(voltageRaw: Int): Int {
+        // 电压范围: 200 (2.0V) - 300 (3.0V)
+        val minVoltage = 200
+        val maxVoltage = 300
 
         return when {
-            voltageMv <= minVoltage -> 0
-            voltageMv >= maxVoltage -> 100
-            else -> ((voltageMv - minVoltage) * 100 / (maxVoltage - minVoltage)).coerceIn(0, 100)
+            voltageRaw <= minVoltage -> 0
+            voltageRaw >= maxVoltage -> 100
+            else -> ((voltageRaw - minVoltage) * 100 / (maxVoltage - minVoltage)).coerceIn(0, 100)
         }
     }
 
