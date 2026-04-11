@@ -22,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tpms.monitor.data.PressureStatus
+import com.tpms.monitor.data.SignalStatus
 import com.tpms.monitor.data.TirePosition
 import com.tpms.monitor.data.TirePressureData
 import com.tpms.monitor.ui.theme.*
@@ -156,8 +157,51 @@ fun TirePressureCard(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // RSSI 信号强度
+                SignalStrengthIndicator(
+                    rssi = data.rssi,
+                    hasData = hasData
+                )
             }
         }
+    }
+}
+
+/**
+ * 信号强度指示器
+ */
+@Composable
+private fun SignalStrengthIndicator(
+    rssi: Int,
+    hasData: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val (icon, color, label) = when {
+        !hasData || rssi == 0 -> Triple("📡", Color(0xFF666688), "无信号")
+        rssi > -50 -> Triple("📶", Color(0xFF66BB6A), "${rssi} dBm")  // 强信号 - 绿色
+        rssi > -70 -> Triple("📶", Color(0xFFFFB74D), "${rssi} dBm")  // 中等 - 黄色
+        else -> Triple("📶", Color(0xFFEF5350), "${rssi} dBm")        // 弱信号 - 红色
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = icon,
+            fontSize = 14.sp,
+            color = color
+        )
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = color,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -230,7 +274,8 @@ fun TirePressureCardPreview() {
             position = TirePosition.FRONT_LEFT,
             pressure = 2.5f,
             temperature = 25f,
-            batteryLevel = 85
+            batteryLevel = 85,
+            rssi = -45
         )
     )
 }
@@ -243,7 +288,22 @@ fun TirePressureCardLowPreview() {
             position = TirePosition.REAR_RIGHT,
             pressure = 1.6f,
             temperature = 28f,
-            batteryLevel = 45
+            batteryLevel = 45,
+            rssi = -65
+        )
+    )
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF1A1A3E)
+@Composable
+fun TirePressureCardWeakSignalPreview() {
+    TirePressureCard(
+        data = TirePressureData(
+            position = TirePosition.REAR_LEFT,
+            pressure = 2.3f,
+            temperature = 30f,
+            batteryLevel = 30,
+            rssi = -78
         )
     )
 }
@@ -256,7 +316,8 @@ fun TirePressureCardNoDataPreview() {
             position = TirePosition.FRONT_RIGHT,
             pressure = 0f,
             temperature = 0f,
-            batteryLevel = 0
+            batteryLevel = 0,
+            rssi = 0
         )
     )
 }

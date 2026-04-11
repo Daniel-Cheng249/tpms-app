@@ -7,6 +7,7 @@ import android.os.Build
 import android.util.Log
 import com.tpms.monitor.data.TirePressureData
 import com.tpms.monitor.data.TirePosition
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -22,6 +23,10 @@ class BleManager(private val context: Context) {
     private val dataChannel = Channel<List<TirePressureData>>(Channel.BUFFERED)
 
     private var dataCharacteristic: BluetoothGattCharacteristic? = null
+    private var lastRssi: Int = 0
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var rssiJob: Job? = null
 
     private val gattCallback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
@@ -31,10 +36,12 @@ class BleManager(private val context: Context) {
                     Log.i(TAG, "Connected to GATT server, status: $status")
                     connectionStateChannel.trySend(BleConnectionState.CONNECTED)
                     gatt?.discoverServices()
+                    startRssiUpdates()
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     Log.i(TAG, "Disconnected from GATT server, status: $status")
                     connectionStateChannel.trySend(BleConnectionState.DISCONNECTED)
+                    stopRssiUpdates()
                     bluetoothGatt?.close()
                     bluetoothGatt = null
                 }
@@ -124,7 +131,10 @@ class BleManager(private val context: Context) {
         }
 
         override fun onReadRemoteRssi(gatt: BluetoothGatt?, rssi: Int, status: Int) {
-            Log.d(TAG, "Remote RSSI: $rssi, status: $status")
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                lastRssi = rssi
+                Log.d(TAG, "Remote RSSI updated: $rssi dBm")
+            }
         }
     }
 
@@ -152,8 +162,11 @@ class BleManager(private val context: Context) {
             return false
         }
 
-        Log.i(TAG, "Connecting to device: ${device.address}")
+        Log.i(TAG, "Connecting to device: ${device.address}, RSSI: ${device.rssi}")
         connectionStateChannel.trySend(BleConnectionState.CONNECTING)
+
+        // 保存初始 RSSI
+        lastRssi = device.rssi
 
         bluetoothGatt = device.device.connectGatt(context, false, gattCallback)
         return true
@@ -166,6 +179,7 @@ class BleManager(private val context: Context) {
     fun disconnect() {
         Log.i(TAG, "Disconnecting...")
         connectionStateChannel.trySend(BleConnectionState.DISCONNECTING)
+        stopRssiUpdates()
 
         bluetoothGatt?.let {
             it.disconnect()
@@ -173,6 +187,29 @@ class BleManager(private val context: Context) {
         }
         bluetoothGatt = null
         dataCharacteristic = null
+    }
+
+    /**
+     * 启动 RSSI 定期更新
+     * 每 5 秒读取一次信号强度
+     */
+    @SuppressLint("MissingPermission")
+    private fun startRssiUpdates() {
+        rssiJob?.cancel()
+        rssiJob = scope.launch {
+            while (isActive) {
+                bluetoothGatt?.readRemoteRssi()
+                delay(5000) // 每 5 秒读取一次
+            }
+        }
+    }
+
+    /**
+     * 停止 RSSI 更新
+     */
+    private fun stopRssiUpdates() {
+        rssiJob?.cancel()
+        rssiJob = null
     }
 
     /**
@@ -264,6 +301,7 @@ class BleManager(private val context: Context) {
                         pressure = pressure,
                         temperature = temperature.toFloat(),
                         batteryLevel = battery,
+                        rssi = lastRssi,
                         isValid = true
                     )
                 )
