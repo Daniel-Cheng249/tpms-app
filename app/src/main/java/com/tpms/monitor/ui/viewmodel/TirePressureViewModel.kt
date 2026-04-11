@@ -4,6 +4,7 @@ import android.app.Application
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -96,10 +97,21 @@ class TirePressureViewModel(application: Application) : AndroidViewModel(applica
             _scannedDevices.value = emptyList()
 
             try {
-                bleScanner.startScan().collect { device ->
+                // 使用轮胎映射来解析广播数据
+                bleScanner.startScanForTpmsData(tireMapping.value).collect { device ->
                     val currentList = _scannedDevices.value
-                    if (currentList.none { it.address == device.address }) {
-                        _scannedDevices.value = currentList + device
+                    val existingIndex = currentList.indexOfFirst { it.address == device.address }
+
+                    // 更新或添加设备
+                    _scannedDevices.value = if (existingIndex >= 0) {
+                        currentList.toMutableList().apply { set(existingIndex, device) }
+                    } else {
+                        currentList + device
+                    }
+
+                    // 如果解析到了 TPMS 数据，更新轮胎压力显示
+                    device.parsedData?.let { parsedData ->
+                        updateTirePressure(parsedData)
                     }
                 }
             } catch (e: Exception) {
@@ -236,6 +248,16 @@ class TirePressureViewModel(application: Application) : AndroidViewModel(applica
             currentMap[pressure.position.tireName] = pressure
         }
         _tirePressures.value = currentMap
+    }
+
+    /**
+     * 更新单个轮胎压力数据
+     */
+    private fun updateTirePressure(pressure: TirePressureData) {
+        val currentMap = _tirePressures.value.toMutableMap()
+        currentMap[pressure.position.tireName] = pressure
+        _tirePressures.value = currentMap
+        Log.d("TirePressureViewModel", "Updated ${pressure.position.displayName}: ${pressure.pressure} bar, ${pressure.temperature}°C")
     }
 
     /**
