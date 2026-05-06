@@ -3,7 +3,8 @@
 ## 项目概述
 蓝牙胎压监测 (TPMS) Android App，使用 Kotlin + Jetpack Compose + MVVM 架构
 - 目标传感器：Bosch SMP290
-- 使用 BLE 5.2 进行设备扫描和数据读取
+- 使用 BLE 5.2 广播模式（Manufacturer Specific Data type 0xFF）进行数据解析
+- 支持 4 轮胎压/温度/电量/RSSI 实时显示
 
 ## 环境配置
 
@@ -27,35 +28,44 @@ systemProp.https.proxyHost=127.0.0.1
 systemProp.https.proxyPort=7892
 ```
 
-## 当前进度 (2026-03-15)
+## 当前进度 (2026-05-06)
 - [x] 项目结构搭建
 - [x] Gradle 配置完成（依赖下载成功）
 - [x] 权限配置完成 (BLE + 位置)
-- [x] 基础 UI 组件已创建
 - [x] BleScanner 基础实现
 - [x] BleManager 基础实现
-- [x] UI 完成（2x2 轮胎卡片、轮毂图标、状态指示器）
-- [x] 编译通过，APK 已安装到模拟器
+- [x] BLE 广播数据解析（SMP290 协议，Manufacturer Data type 0xFF）
+- [x] 胎压/温度/电量/RSSI 实时显示
+- [x] 设备映射绑定界面
+- [x] DataStore 持久化存储映射关系
+- [x] UI 完成（2x2 轮胎卡片、科幻车辆俯视图、状态指示器）
+- [x] 应用图标（科技风格）
+- [x] 编译通过，APK 可构建
 
 ## 下一步
-1. 使用 nRF Connect 抓取 SMP290 的实际 UUID 和数据格式
-2. 更新 BleConstants.kt 中的 UUID
-3. 完善 BleManager 数据解析逻辑
-4. 连接真机测试 BLE 扫描功能
+1. 真机测试 BLE 扫描和广播数据解析
+2. 实现低胎压/高胎压/低电量报警
+3. 历史数据记录与图表
+4. 启动页和权限请求引导页
+5. 后台持续监测服务
 
 ## 项目结构
 ```
 app/src/main/java/com/tpms/monitor/
-├── MainActivity.kt          # 主 Activity，权限请求
+├── MainActivity.kt          # 主 Activity，导航管理
 ├── ble/
 │   ├── BleScanner.kt        # BLE 扫描器
 │   ├── BleManager.kt        # BLE 连接管理器
+│   ├── TpmsBroadcastParser.kt  # 广播数据解析
 │   ├── BleDevice.kt         # 设备模型
+│   ├── BleConnectionState.kt  # 连接状态
 │   └── BleConstants.kt      # BLE 常量
 ├── data/
 │   ├── TirePosition.kt      # 轮胎位置枚举
 │   ├── TirePressureData.kt  # 胎压数据结构
-│   └── UiState.kt           # UI 状态
+│   ├── UiState.kt           # UI 状态
+│   ├── TireDeviceMapping.kt  # 设备映射
+│   └── MappingPreferences.kt  # DataStore 持久化
 └── ui/
     ├── theme/               # Material 3 主题
     ├── components/          # UI 组件

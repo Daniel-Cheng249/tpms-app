@@ -1,294 +1,43 @@
 # TPMS UAES Android App 开发工作报告
 
-**报告日期**: 2026-04-07
+**最新更新**: 2026-05-06
 **项目**: 汽车胎压监测 Android App (TPMS UAES)
-**状态**: 代码实现完成，已上传 GitHub，待硬件测试
+**状态**: 核心功能实现完成，构建通过，待真机硬件测试
 
 ---
 
-## 一、工作流程总览
+## 一、项目概述
 
-```
-需求分析 → 头脑风暴 → 设计文档 → 实施计划 → 代码实现 → 待测试
-    │          │          │          │          │
-    ▼          ▼          ▼          ▼          ▼
-  用户沟通   技能插件   规格文档   任务分解   Git 提交
-```
-
----
-
-## 二、详细工作流程
-
-### 阶段 1: 需求分析
-
-**用户要求**:
-
-| 项目 | 用户要求 |
-|------|----------|
-| **目标** | 开发 Android 手机 App，连接蓝牙胎压传感器 |
-| **显示内容** | 四个轮胎压力、温度、电量 |
+| 项目 | 说明 |
+|------|------|
+| **目标** | 开发 Android 手机 App，通过 BLE 广播接收胎压传感器数据 |
+| **显示内容** | 四个轮胎压力、温度、电量、信号强度 |
 | **状态显示** | 扫描状态、连接状态 |
 | **硬件** | Bosch SMP290 芯片 (BLE 5.2) |
 | **传感器** | 4 个独立传感器 (每胎一个) |
-| **用户情况** | 第一次开发 Android App，需要详细指导 |
+| **通信方式** | BLE 广播 (Manufacturer Specific Data type 0xFF) |
 
----
-
-### 阶段 2: 头脑风暴
-
-**使用的技能**: `superpowers:brainstorming`
-
-通过多轮问答明确了以下关键信息：
-
-| 问题 | 用户回答 |
-|------|----------|
-| 技术栈 | Android Studio + Kotlin + Jetpack Compose |
-| 蓝牙协议 | BLE 5.2 (混合模式：广播 + 连接) |
-| 传感器类型 | Bosch SMP290 (分布式，每胎一个) |
-| 界面风格 | 图形化仪表盘 |
-| 附加功能 | 电量/温度显示，预留扩展性 |
-
-**产出物**:
-- `tpms-mockup.html` - 界面视觉 mockup
-- `tpms-architecture.html` - 系统架构图
-
----
-
-### 阶段 3: 设计文档
-
-**使用的技能**: `superpowers:writing-plans`
-
-**设计文档位置**: `docs/superpowers/specs/2026-03-14-tpms-monitor-design.md`
-
-**设计决策**:
+## 二、技术选型
 
 | 组件 | 选择 |
 |------|------|
-| 架构模式 | MVVM |
+| 语言 | Kotlin |
 | UI 框架 | Jetpack Compose |
+| 架构模式 | MVVM |
+| 状态管理 | StateFlow |
 | 最低版本 | Android 8.0 (API 26) |
 | 目标版本 | Android 14 (API 34) |
 | 主题 | 深色主题 |
-| 状态色 | 绿 (正常)/红 (低压)/橙 (高压) |
+| 状态色 | 绿(正常) / 红(低压) / 橙(高压) |
+| 持久化 | DataStore (Preferences) |
 
-**系统架构**:
-```
-┌─────────────────┐
-│  UI 层 (Compose) │
-├─────────────────┤
-│  ViewModel 层    │
-├─────────────────┤
-│  BLE 通信层      │
-├─────────────────┤
-│  硬件层 (SMP290) │
-└─────────────────┘
-```
-
-**待确认事项** (重要):
-1. SMP290 的 Service UUID - 需用 nRF Connect 抓取
-2. Characteristic UUID - 需用 nRF Connect 抓取
-3. 数据格式 - 需查阅数据手册或抓包分析
-4. 轮胎位置映射方式 - 需确定 (MAC 地址映射/广播数据/手动校准)
-
----
-
-### 阶段 4: 实施计划
-
-**计划文档位置**: `C:\Users\wu\.claude\plans\tpms-monitor-implementation.md`
-
-**任务分解**:
-
-```
-Chunk 1: 项目骨架与基础配置
-├── Task 1a: 创建 .gitignore
-├── Task 1b: 创建根目录 Gradle 配置
-└── Task 1c: 创建 Gradle 包装器和版本目录
-
-Chunk 2: 数据模型层
-├── Task 4: 创建数据模型
-└── Task 5: 创建 BLE 设备数据类
-
-Chunk 3: BLE 通信层
-├── Task 6: 创建 BLE 扫描器
-└── Task 7: 创建 BLE 管理器
-
-Chunk 4: ViewModel 层
-└── Task 8: 创建 ViewModel
-
-Chunk 5: UI 层
-├── Task 9: 创建主题
-├── Task 10: 创建 UI 组件
-└── Task 11: 创建 MainActivity
-
-Chunk 6: 资源文件
-└── Task 12: 创建 Android 资源文件
-
-Chunk 7: 验证与测试
-├── Task 13: 在 Android Studio 中打开项目
-└── Task 14: 测试基本功能
-```
-
----
-
-### 阶段 5: 代码实现
-
-**使用的技能**: `superpowers:executing-plans` + `superpowers:using-git-worktrees`
-
-**GitHub 仓库**:
-- **地址**: https://github.com/Daniel-Cheng249/tpms-app
-- **作者**: Daniel-Cheng249 <chengze2@foxmail.com>
-- **分支**: `main`
-
-**提交历史**:
-
-| Commit | 说明 |
-|--------|------|
-| `1b6b4b7` | Initial commit: TPMS App with GitHub workflow |
-| `b3c9f56` | 清理不必要的脚本文件，添加简化版 push.bat |
-| `1cac302` | 添加 README |
-| `274ce5d` | 更新 README，配置作者信息 |
-| `725b630` | 清理测试文本 |
-| `82af394` | 恢复 push.bat 脚本 |
-| `98228b9` | 将 App 名称修改为 TPMS UAES |
-| `668b3f3` | 更新应用图标为科技风格设计 |
-| `82af394` | 恢复 push.bat 脚本 |
-
-**总代码量**: 约 2,000+ 行 Kotlin 代码
-
----
-
-## 三、产出物清单
-
-### 代码文件 (35+ 个)
-
-**项目配置** (9 个):
-- `.gitignore`
-- `build.gradle.kts`
-- `settings.gradle.kts`
-- `gradle.properties`
-- `gradle/wrapper/gradle-wrapper.properties`
-- `gradle/libs.versions.toml`
-- `app/build.gradle.kts`
-- `app/proguard-rules.pro`
-- `push.bat` (快速推送脚本)
-
-**数据模型** (5 个):
-- `app/src/main/java/com/tpms/monitor/data/TirePosition.kt`
-- `app/src/main/java/com/tpms/monitor/data/TirePressureData.kt`
-- `app/src/main/java/com/tpms/monitor/data/UiState.kt`
-- `app/src/main/java/com/tpms/monitor/data/TireDeviceMapping.kt`
-- `app/src/main/java/com/tpms/monitor/data/MappingPreferences.kt` (DataStore 持久化)
-
-**BLE 通信** (5 个):
-- `app/src/main/java/com/tpms/monitor/ble/BleConstants.kt`
-- `app/src/main/java/com/tpms/monitor/ble/BleDevice.kt`
-- `app/src/main/java/com/tpms/monitor/ble/BleScanner.kt`
-- `app/src/main/java/com/tpms/monitor/ble/BleManager.kt`
-- `app/src/main/java/com/tpms/monitor/ble/BleConnectionState.kt`
-
-**ViewModel** (1 个):
-- `app/src/main/java/com/tpms/monitor/ui/viewmodel/TirePressureViewModel.kt`
-
-**UI 组件** (7 个):
-- `app/src/main/java/com/tpms/monitor/ui/theme/Color.kt`
-- `app/src/main/java/com/tpms/monitor/ui/theme/Theme.kt`
-- `app/src/main/java/com/tpms/monitor/ui/components/StatusIndicators.kt`
-- `app/src/main/java/com/tpms/monitor/ui/components/TirePressureCard.kt`
-- `app/src/main/java/com/tpms/monitor/ui/components/DashboardScreen.kt`
-- `app/src/main/java/com/tpms/monitor/ui/components/DeviceMappingScreen.kt` (设备绑定界面)
-- `app/src/main/java/com/tpms/monitor/MainActivity.kt`
-
-**资源文件** (7 个):
-- `app/src/main/AndroidManifest.xml`
-- `app/src/main/res/values/strings.xml`
-- `app/src/main/res/values/colors.xml`
-- `app/src/main/res/values/themes.xml`
-- `app/src/main/res/drawable/ic_launcher_background.xml`
-- `app/src/main/res/drawable/ic_launcher_foreground.xml`
-- `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`
-
-### 文档文件 (5 个)
-
-| 文件 | 位置 | 内容 |
-|------|------|------|
-| 开发报告 | `DEVELOPMENT_REPORT.md` | 本报告，完整开发记录 |
-| 开发日志 | `CLAUDE.md` | 项目概述和环境配置 |
-| 待办事项 | `TODO.md` | 功能开发清单 |
-| README | `README.md` | 项目简介和快速开始 |
-| 设计文档 | `docs/superpowers/specs/2026-03-14-tpms-monitor-design.md` | 完整的设计规格说明 |
-
----
-
-## 四、项目目录结构
-
-```
-tpms-app/
-├── .gitignore
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradle.properties
-├── gradle/
-│   ├── wrapper/
-│   │   └── gradle-wrapper.properties
-│   └── libs.versions.toml
-└── app/
-    ├── build.gradle.kts
-    ├── proguard-rules.pro
-    └── src/main/
-        ├── AndroidManifest.xml
-        ├── java/com/tpms/monitor/
-        │   ├── MainActivity.kt
-        │   ├── data/
-        │   │   ├── TirePosition.kt
-        │   │   ├── TirePressureData.kt
-        │   │   ├── UiState.kt
-        │   │   ├── TireDeviceMapping.kt
-        │   │   └── MappingPreferences.kt
-        │   ├── ble/
-        │   │   ├── BleConstants.kt
-        │   │   ├── BleDevice.kt
-        │   │   ├── BleScanner.kt
-        │   │   ├── BleManager.kt
-        │   │   └── BleConnectionState.kt
-        │   ├── ui/
-        │   │   ├── theme/
-        │   │   │   ├── Color.kt
-        │   │   │   └── Theme.kt
-        │   │   ├── components/
-        │   │   │   ├── DashboardScreen.kt
-        │   │   │   ├── DeviceMappingScreen.kt
-        │   │   │   ├── StatusIndicators.kt
-        │   │   │   └── TirePressureCard.kt
-        │   │   └── viewmodel/
-        │   │       └── TirePressureViewModel.kt
-        └── res/
-            ├── values/
-            │   ├── strings.xml
-            │   ├── colors.xml
-            │   └── themes.xml
-            ├── drawable/
-            │   ├── ic_launcher_background.xml
-            │   └── ic_launcher_foreground.xml
-            └── mipmap-anydpi-v26/
-                ├── ic_launcher.xml
-                └── ic_launcher_round.xml
-├── README.md
-├── CLAUDE.md
-├── TODO.md
-├── DEVELOPMENT_REPORT.md
-└── push.bat
-```
-
----
-
-## 五、关键设计要点
-
-### 1. 架构设计
+## 三、系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     UI 层 (Compose)                      │
-│  DashboardScreen, TirePressureCard, StatusIndicators   │
+│  DashboardScreen, TirePressureCard, VehicleTopView     │
+│  DeviceMappingScreen, StatusIndicators                  │
 └─────────────────────────────────────────────────────────┘
                           ↕ observe / action
 ┌─────────────────────────────────────────────────────────┐
@@ -298,29 +47,32 @@ tpms-app/
                           ↕ command / data flow
 ┌─────────────────────────────────────────────────────────┐
 │                    BLE 通信层                            │
-│  BleScanner (扫描), BleManager (连接/数据解析)          │
+│  BleScanner (扫描), TpmsBroadcastParser (数据解析)      │
+│  BleManager (连接管理)                                  │
 └─────────────────────────────────────────────────────────┘
-                          ↕ scan / connect / receive
+                          ↕ scan / broadcast
 ┌─────────────────────────────────────────────────────────┐
 │                  硬件层 (Bosch SMP290)                   │
 │  4 个独立传感器：左前/右前/左后/右后                      │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 2. 状态管理
+## 四、核心设计决策
+
+### 4.1 状态管理
 
 ```kotlin
 sealed class UiState {
-    object Idle : UiState()           // 未开始
-    object Scanning : UiState()       // 扫描中
-    object Connecting : UiState()     // 连接中
+    object Idle : UiState()
+    object Scanning : UiState()
+    object Connecting : UiState()
     data class PartiallyConnected(val connected: Int, val total: Int) : UiState()
-    object Connected : UiState()      // 全部连接
+    object Connected : UiState()
     data class Error(val message: String) : UiState()
 }
 ```
 
-### 3. 压力状态判断
+### 4.2 压力状态判断
 
 ```kotlin
 enum class PressureStatus {
@@ -330,104 +82,53 @@ enum class PressureStatus {
 }
 ```
 
----
+### 4.3 广播数据解析
+
+SMP290 广播数据格式（Manufacturer Data type 0xFF）：
+- 制造商 ID：`0x02A6` (Bosch)
+- 压力值：单字节，`值 * 1.375 kPa`
+- 温度值：单字节，`值 - 40°C`
+- 电量：字节 2 的 bit 5（1 = 正常 >=2.2V，0 = 低电量 <2.2V）
+
+## 五、开发里程碑
+
+| 时间 | 关键节点 |
+|------|---------|
+| 2026-03-14 | 项目骨架搭建、基础架构设计 |
+| 2026-04-07 | UI 基础组件、设备绑定界面实现 |
+| 2026-04 | BLE 广播数据解析迭代（基于实际数据多次校准偏移量和系数） |
+| 2026-05-06 | 科幻车辆俯视图、文档同步更新 |
+
+GitHub 仓库：https://github.com/Daniel-Cheng249/tpms-app
 
 ## 六、待完成事项
 
-### 必须完成 (Critical)
+参考 `TODO.md`，按优先级：
 
-1. **用 nRF Connect 获取 SMP290 的 UUID**
-   - 下载 nRF Connect for Mobile
-   - 扫描并连接 SMP290
-   - 记录 Service UUID 和 Characteristic UUID
+- **P0**: 真机验证（BLE 扫描、数据解析准确性）
+- **P1**: 报警功能（低/高胎压、低电量）、可配置阈值
+- **P2**: 启动页、权限引导页、数据动画、历史图表
+- **P3**: Room 数据库、后台服务、稳定性测试
 
-2. **更新 BleConstants.kt**
-   ```kotlin
-   // 当前是占位符，需要替换为实际值
-   val TPMS_SERVICE_UUID = UUID.fromString("实际 UUID")
-   val DATA_CHARACTERISTIC_UUID = UUID.fromString("实际 UUID")
-   ```
-
-3. **分析数据格式并更新解析逻辑**
-   - 观察 nRF Connect 中的原始数据
-   - 确定每个字节的含义
-   - 更新 `BleManager.parseTirePressureData()` 方法
-
-### 建议完成 (Recommended)
-
-4. **在 Android Studio 中打开项目并测试**
-   - 打开 `.worktrees/tpms-app` 目录
-   - 等待 Gradle 同步
-   - 连接真实 Android 手机
-   - 运行并测试基本功能
-
-5. **实现轮胎位置映射**
-   - 选择映射方案 (MAC 地址/广播数据/手动校准)
-   - 实现配置界面
-
----
-
-## 七、下一步行动建议
-
-**推荐顺序**:
-
-```
-1. 安装 Android Studio (如未安装)
-       ↓
-2. 用 nRF Connect 抓取 SMP290 的 UUID 和数据格式
-       ↓
-3. 更新 BleConstants.kt 和 BleManager.kt
-       ↓
-4. 在 Android Studio 中打开项目
-       ↓
-5. 连接真实 Android 手机并运行
-       ↓
-6. 测试扫描、连接、数据显示功能
-```
-
----
-
-## 八、关键注意事项
-
-### 对于新手开发者
+## 七、关键注意事项
 
 1. **模拟器不支持蓝牙** - 必须使用真实 Android 设备测试
 2. **查看 Logcat 日志** - 在 Android Studio 底部点击 Logcat 标签查看调试信息
 3. **权限请求** - 首次运行会弹出蓝牙权限请求，必须点击"允许"
-4. **UUID 待确认** - 当前代码中的 UUID 是占位符，需要用 nRF Connect 获取实际值
+4. **UUID 占位符** - `BleConstants.kt` 中的 Service/Characteristic UUID 仍是占位符，当前功能主要依赖广播数据解析
 
-### 常用命令
+## 八、常用命令
 
 ```bash
-# 查看项目结构
-tree -L 4
+# 编译调试 APK
+./gradlew :app:assembleDebug
+
+# 安装到真机
+./gradlew :app:installDebug
 
 # 查看提交历史
 git log --oneline
 
 # 快速推送代码
-./push.bat "提交信息"
-
-# 或手动推送
-git add . && git commit -m "提交信息" && git push
+git add . && git commit -m "描述" && git push
 ```
-
----
-
-## 九、Git 提交历史
-
-```
-668b3f3 更新应用图标为科技风格设计
-98228b9 将 App 名称修改为 TPMS UAES
-82af394 恢复 push.bat 脚本
-1b6b4b7 Initial commit: TPMS App with GitHub workflow
-2adfe05 feat: create ViewModel for UI state management
-12f26cd feat: create BLE scanner and manager
-e0c51cd feat: create data models and BLE constants
-2ca4315 feat: create project skeleton
-26ced55 chore: add git ignore file for Android project
-```
-
----
-
-**报告完成**
