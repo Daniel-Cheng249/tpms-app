@@ -210,16 +210,19 @@ private fun TirePositionGrid(
             )
         }
 
-        // 车辆图标示意
+        // 科幻车辆俯视图
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "🚗 车辆俯视图",
-                fontSize = 24.sp
+            VehicleTopView(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(200.dp),
+                glowColor = Color(0xFF00E5FF),
+                bodyColor = Color(0xFFFFFFFF)
             )
         }
 

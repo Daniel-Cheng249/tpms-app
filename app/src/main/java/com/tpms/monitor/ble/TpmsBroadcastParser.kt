@@ -10,14 +10,17 @@ import com.tpms.monitor.data.TirePosition
  * 解析 BLE 广播帧中的 Manufacturer Specific Data (type 0xFF)
  *
  * 博世 SMP290 广播数据格式：
- * 示例数据: 02010613FFA6021A001B00FFFFFFFF01000000080100A503195905110767337203570218AF3EB8001A9032A602
+ * 示例数据: 0201060AFFA602010122006645D70709434154504D53
  *
  * 结构解析:
  * - 02 01 06: Flags (Type 0x01, Length 2, Value 0x06)
- * - 13 FF A6 02 1A 00 1B 00 ...: Manufacturer Specific Data (Type 0xFF, Length 0x13=19)
+ * - 0A FF A6 02 01 01 22 00 66 45 D7 07: Manufacturer Specific Data (Type 0xFF, Length 0x0A=10)
  *   - A6 02: 博世公司 ID (0x02A6, little endian)
- *   - 1A 00: 压力值 (0x001A = 26, 需要确认单位)
- *   - 1B 00: 温度值 (0x001B = 27, 需要确认单位)
+ *   - 01 01: 保留/状态
+ *   - 22: 电量字节 (bit 5 表示电压状态，与 2.2V 比较)
+ *   - 00: 保留
+ *   - 66: 压力值 (0x66 = 102, 102 * 1.375 = 140.25 kPa ≈ 1.40 bar)
+ *   - 45: 温度值 (0x45 = 69, 69 + (-40) = 29°C)
  */
 object TpmsBroadcastParser {
 
@@ -26,22 +29,25 @@ object TpmsBroadcastParser {
     // 博世 (Bosch) 公司 ID
     private const val BOSCH_MANUFACTURER_ID = 0x02A6
 
-    // 数据字节偏移量 (基于 ScanRecord 解析后的制造商数据，已去掉 ID 字节)
-    // 广播数据: 02010613FFA6021A001B00FFFFFFFF01000000080100A503...
-    // Manufacturer Data (去掉 A6 02 ID 后):
-    // - Byte 0-1: 1A 00 - 压力值 (0x001A = 26, 对应大气压 ~100kPa = 1bar)
-    // - Byte 2-3: 1B 00 - 温度值 (0x001B = 27, 对应环境温度)
-    // - Byte 4-7: FF FF FF FF - 保留/状态
-    // - Byte 8-11: 01 00 00 00 - 保留
-    // - Byte 12-13: 08 01 - 电池电压 (0x0108 = 264, 单位 0.01V = 2.64V)
-    private const val OFFSET_PRESSURE = 0      // 压力值起始字节
-    private const val OFFSET_TEMPERATURE = 2   // 温度值起始字节
-    private const val OFFSET_BATTERY = 12      // 电池电压起始字节 (08 01)
+    // 数据字节偏移量 (基于 ScanRecord 解析后的制造商数据，已去掉 ID 字节 A6 02)
+    // Manufacturer Data (去掉 A6 02 ID 后): 01 01 22 00 66 45 D7 07
+    // - Byte 0-1: 01 01 - 保留/状态
+    // - Byte 2: 22 - 电量字节 (bit 5 表示电压状态)
+    // - Byte 3: 00 - 保留
+    // - Byte 4: 66 - 压力值 (单字节，单位 1.375 kPa)
+    // - Byte 5: 45 - 温度值 (单字节，需要 -40°C 偏移)
+    // - Byte 6-7: D7 07 - 保留
+    private const val OFFSET_STATUS = 0        // 状态字节起始
+    private const val OFFSET_BATTERY_FLAGS = 2 // 电量标志字节 (bit 5)
+    private const val OFFSET_PRESSURE = 4      // 压力值起始字节 (单字节)
+    private const val OFFSET_TEMPERATURE = 5   // 温度值起始字节 (单字节)
 
     // 单位换算系数
-    private const val PRESSURE_SCALE = 0.0385f  // 26 * 0.0385 ≈ 1 bar (大气压)
-    private const val TEMPERATURE_OFFSET = 0f   // 直接值即为温度 (需要根据实际校准)
-    private const val BATTERY_SCALE = 0.01f     // 单位 0.01V
+    private const val PRESSURE_SCALE_KPA = 1.375f   // 每个单位 = 1.375 kPa
+    private const val PRESSURE_KPA_TO_BAR = 0.01f   // kPa 转 bar
+    private const val TEMPERATURE_OFFSET = -40f     // 温度偏移量 -40°C
+    private const val BATTERY_VOLTAGE_THRESHOLD = 2.2f // 电压阈值 2.2V
+    private const val BATTERY_BIT_MASK = 0x20       // bit 5 = 0b0010_0000
 
     /**
      * 从 ScanRecord 解析 TPMS 数据
@@ -95,10 +101,13 @@ object TpmsBroadcastParser {
     /**
      * 解析博世 TPMS 数据
      *
-     * 数据格式 (ScanRecord 返回的数据，已去掉制造商ID):
-     * Byte 0-1: 压力值 (little endian, 16-bit)
-     * Byte 2-3: 温度值 (little endian, 16-bit)
-     * Byte 4+:  其他数据 (电量、状态等)
+     * 新数据格式 (ScanRecord 返回的数据，已去掉制造商ID A6 02):
+     * Byte 0-1: 01 01 - 保留/状态
+     * Byte 2:   22    - 电量字节 (bit 5 表示电压状态)
+     * Byte 3:   00    - 保留
+     * Byte 4:   66    - 压力值 (单字节，0x66 = 102, 102 * 1.375 = 140.25 kPa)
+     * Byte 5:   45    - 温度值 (单字节，0x45 = 69, 69 - 40 = 29°C)
+     * Byte 6-7: D7 07 - 保留
      *
      * @param data 制造商特定数据 (已从 ScanRecord 中分离，不包含ID)
      * @param rssi 信号强度
@@ -116,39 +125,30 @@ object TpmsBroadcastParser {
         }
 
         return try {
-            // 解析压力值 (16-bit unsigned, little endian)
-            // 示例: 1A 00 -> 0x001A = 26
-            val pressureRaw = (data[OFFSET_PRESSURE].toInt() and 0xFF) or
-                    ((data[OFFSET_PRESSURE + 1].toInt() and 0xFF) shl 8)
+            // 解析压力值 (单字节)
+            // 示例: 0x66 = 102, 102 * 1.375 kPa = 140.25 kPa ≈ 1.40 bar
+            val pressureRaw = data[OFFSET_PRESSURE].toInt() and 0xFF
+            val pressureKpa = pressureRaw * PRESSURE_SCALE_KPA
+            val pressure = pressureKpa * PRESSURE_KPA_TO_BAR  // 转换为 bar
 
-            // 解析温度值 (16-bit unsigned, little endian)
-            // 示例: 1B 00 -> 0x001B = 27
-            val temperatureRaw = (data[OFFSET_TEMPERATURE].toInt() and 0xFF) or
-                    ((data[OFFSET_TEMPERATURE + 1].toInt() and 0xFF) shl 8)
-
-            // 压力和温度换算 (基于实际测量数据校准)
-            // - 压力：26 对应大气压 ~1 bar，所以比例系数约为 1/26 ≈ 0.0385
-            // - 温度：直接值即为摄氏度 (需要根据实际校准)
-            val pressure = pressureRaw * PRESSURE_SCALE
+            // 解析温度值 (单字节，带 -40°C 偏移)
+            // 示例: 0x45 = 69, 69 - 40 = 29°C
+            val temperatureRaw = data[OFFSET_TEMPERATURE].toInt() and 0xFF
             val temperature = temperatureRaw + TEMPERATURE_OFFSET
 
-            // 解析电池电压 (16-bit unsigned, little endian)
-            // 示例: 08 01 -> 0x0108 = 264 (单位 0.01V = 2.64V)
-            val batteryVoltageRaw = if (data.size >= OFFSET_BATTERY + 2) {
-                (data[OFFSET_BATTERY].toInt() and 0xFF) or
-                        ((data[OFFSET_BATTERY + 1].toInt() and 0xFF) shl 8)
-            } else {
-                0
-            }
-            val batteryVoltage = batteryVoltageRaw * BATTERY_SCALE  // 转换为伏特
-
-            // 将电池电压转换为电量百分比 (假设 2.0V=0%, 3.0V=100%)
-            val batteryLevel = voltageToPercentage(batteryVoltageRaw)
+            // 解析电量状态 (字节 2 的 bit 5)
+            // bit 5 = 1: 电压 >= 2.2V (正常)
+            // bit 5 = 0: 电压 < 2.2V (低电量)
+            val batteryFlags = data[OFFSET_BATTERY_FLAGS].toInt() and 0xFF
+            val isVoltageNormal = (batteryFlags and BATTERY_BIT_MASK) != 0
+            val batteryLevel = if (isVoltageNormal) 80 else 20  // 简化：正常80%，低电量20%
+            val batteryVoltage = if (isVoltageNormal) 2.5f else 2.0f  // 估算电压
 
             Log.i(TAG, "Parsed Bosch TPMS - Raw Pressure: 0x${pressureRaw.toString(16)} ($pressureRaw), " +
                     "Raw Temp: 0x${temperatureRaw.toString(16)} ($temperatureRaw), " +
-                    "Raw Battery: 0x${batteryVoltageRaw.toString(16)} ($batteryVoltageRaw) -> " +
-                    "Pressure: ${"%.2f".format(pressure)} bar, Temp: ${"%.1f".format(temperature)}°C, " +
+                    "Battery Flags: 0x${batteryFlags.toString(16)}, Bit5: $isVoltageNormal -> " +
+                    "Pressure: ${"%.2f".format(pressure)} bar (${"%.1f".format(pressureKpa)} kPa), " +
+                    "Temp: ${"%.1f".format(temperature)}°C, " +
                     "Voltage: ${"%.2f".format(batteryVoltage)}V, Battery: $batteryLevel%")
 
             TirePressureData(
@@ -157,30 +157,11 @@ object TpmsBroadcastParser {
                 temperature = temperature,
                 batteryLevel = batteryLevel,
                 rssi = rssi,
-                isValid = pressure in 0.1f..10.0f  // 简单的有效性检查
+                isValid = pressure in 0.5f..5.0f && temperature in -40f..100f  // 有效性检查
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse Bosch data", e)
             null
-        }
-    }
-
-    /**
-     * 将电池电压原始值转换为电量百分比
-     * 假设电压原始值范围: 200 (2.0V) = 0%, 300 (3.0V) = 100%
-     *
-     * @param voltageRaw 电池电压原始值 (单位: 0.01V)
-     * @return 电量百分比 (0-100)
-     */
-    private fun voltageToPercentage(voltageRaw: Int): Int {
-        // 电压范围: 200 (2.0V) - 300 (3.0V)
-        val minVoltage = 200
-        val maxVoltage = 300
-
-        return when {
-            voltageRaw <= minVoltage -> 0
-            voltageRaw >= maxVoltage -> 100
-            else -> ((voltageRaw - minVoltage) * 100 / (maxVoltage - minVoltage)).coerceIn(0, 100)
         }
     }
 
